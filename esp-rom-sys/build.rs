@@ -7,13 +7,51 @@ fn main() -> Result<(), Box<dyn Error>> {
         panic!("The 'esp-rom-sys' crate is not allowed to get bumped to anything above 0.1.x");
     }
 
+    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    println!("cargo:rustc-link-search={}", out.display());
+
+    // Pre-v3 ESP32-P4 path: distinct from upstream esp32p4 (ECO5/v3).
+    // Does not use Chip::from_cargo_feature so it does not require a PAC.
+    if cfg!(feature = "esp32p4v1") {
+        // Mutually exclusive with other chip features.
+        let other_chips = [
+            "CARGO_FEATURE_ESP32",
+            "CARGO_FEATURE_ESP32C2",
+            "CARGO_FEATURE_ESP32C3",
+            "CARGO_FEATURE_ESP32C5",
+            "CARGO_FEATURE_ESP32C6",
+            "CARGO_FEATURE_ESP32C61",
+            "CARGO_FEATURE_ESP32H2",
+            "CARGO_FEATURE_ESP32P4",
+            "CARGO_FEATURE_ESP32S2",
+            "CARGO_FEATURE_ESP32S3",
+        ];
+        for env in other_chips {
+            if std::env::var(env).is_ok() {
+                panic!(
+                    "esp32p4v1 is mutually exclusive with other chip features (found {env})"
+                );
+            }
+        }
+
+        println!("cargo:rustc-cfg=esp32p4v1");
+        println!("cargo:rustc-check-cfg=cfg(esp32p4v1)");
+        // ROM helper modules used by esp-bootloader-esp-idf (same as P4).
+        println!("cargo:rustc-cfg=rom_crc_le");
+        println!("cargo:rustc-cfg=rom_crc_be");
+        println!("cargo:rustc-cfg=rom_md5_bsd");
+        println!("cargo:rustc-check-cfg=cfg(rom_crc_le,rom_crc_be,rom_md5_bsd)");
+        copy_dir_all("./ld/esp32p4v1/", &out)?;
+        copy_dir_all("./libs/esp32p4v1/", &out)?;
+        include_libs("./libs/esp32p4v1/")?;
+        println!("cargo:rustc-link-lib=esp_rom_sys");
+        return Ok(());
+    }
+
     let chip = esp_metadata_generated::Chip::from_cargo_feature()?;
 
     // Define all necessary configuration symbols for the configured device:
     chip.define_cfgs();
-
-    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-    println!("cargo:rustc-link-search={}", out.display());
 
     copy_dir_all(format!("./ld/{}/", chip.name()), &out)?;
     copy_dir_all(format!("./libs/{}/", chip.name()), &out)?;

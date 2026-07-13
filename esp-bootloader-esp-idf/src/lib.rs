@@ -113,10 +113,15 @@ pub use crypto::Crc32 as Crc32ForTesting;
 #[cfg(feature = "std")]
 pub(crate) use non_rom as crypto;
 
+// Partition/OTA helpers require esp-storage (and thus esp-hal on chip features).
+// The pre-v3 esp32p4v1 path only needs the application descriptor macro.
+#[cfg(not(feature = "esp32p4v1"))]
 pub mod partitions;
 
+#[cfg(not(feature = "esp32p4v1"))]
 pub mod ota;
 
+#[cfg(not(feature = "esp32p4v1"))]
 pub mod ota_updater;
 
 // We run tests on the host which happens to be MacOS machines and mach-o

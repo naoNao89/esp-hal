@@ -10,6 +10,32 @@ pub mod crc;
 pub mod md5;
 pub mod spiflash;
 
+/// Install UART as the ROM printf output channel.
+///
+/// Pre-v3 ESP32-P4 ROM symbol (also present on ECO5 at the same address).
+/// Source: ESP-IDF `esp32p4.rom.ld` / `rom/ets_sys.h`.
+#[inline(always)]
+pub fn ets_install_uart_printf() {
+    unsafe extern "C" {
+        fn ets_install_uart_printf();
+    }
+
+    unsafe { ets_install_uart_printf() };
+}
+
+/// Write one character to the ROM UART channel.
+///
+/// Pre-v3 ESP32-P4 ROM symbol at `0x4fc00080`.
+/// Source: ESP-IDF `esp32p4.rom.ld` / `rom/ets_sys.h`.
+#[inline(always)]
+pub fn ets_write_char_uart(c: u8) {
+    unsafe extern "C" {
+        fn ets_write_char_uart(c: core::ffi::c_char);
+    }
+
+    unsafe { ets_write_char_uart(c as core::ffi::c_char) };
+}
+
 /// Busy-loop CPU for the given amount of microseconds.
 #[inline(always)]
 pub fn ets_delay_us(us: u32) {
@@ -77,7 +103,7 @@ pub fn ets_set_appcpu_boot_addr(boot_addr: u32) {
 #[unsafe(no_mangle)]
 extern "C" fn rtc_clk_xtal_freq_get() -> i32 {
     cfg_select! {
-        any(esp32c6, esp32h2, esp32p4) => {
+        any(esp32c6, esp32h2, esp32p4, esp32p4v1) => {
             unsafe extern "C" {
                 fn ets_clk_get_xtal_freq() -> i32;
             }

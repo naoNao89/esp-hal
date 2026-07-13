@@ -370,9 +370,11 @@ impl<'a> PartitionTable<'a> {
                     ((0x600c5000 as *const u32).read_volatile() & 0xff) << 16
                 };
             }
-            feature = "esp32p4" => {
+            any(feature = "esp32p4", feature = "esp32p4v1") => {
                 // DR_REG_FLASH_SPI0_BASE : 0x5008C000 = DR_REG_HPPERIPH0_BASE + 0x8C000
                 // TODO: verify MSPI register for partition physical address read
+                // esp32p4v1: not validated on hardware in this milestone; same register
+                // layout is assumed only for compile completeness of this helper.
                 let paddr = unsafe {
                     ((0x5008C000 + 0x380) as *mut u32).write_volatile(0); // SPI_MEM_C_MMU_ITEM_INDEX_REG
                     (((0x5008C000 + 0x37c) as *const u32).read_volatile() & 0xff) << 16 // SPI_MEM_C_MMU_ITEM_CONTENT_REG

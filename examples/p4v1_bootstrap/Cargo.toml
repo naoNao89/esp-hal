@@ -1,0 +1,20 @@
+[package]
+name = "p4v1-bootstrap"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+esp-bootloader-esp-idf = { path = "../../esp-bootloader-esp-idf", default-features = false, features = ["esp32p4v1"] }
+esp-rom-sys = { path = "../../esp-rom-sys", features = ["esp32p4v1"] }
+# esp-riscv-rt is not linked: its riscv-rt dependency provides a CLIC-oriented
+# startup that is not validated for pre-v3. This example uses isolated
+# interrupt-free startup in src/reset.S (hardware-proven).
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+debug = true
+panic = "abort"
+strip = false

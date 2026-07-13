@@ -64,6 +64,8 @@ esp32c61 = [ "dep:esp32c61" ]
 esp32h2 = [ "dep:esp32h2" ]
 ##
 esp32p4 = [ "dep:esp32p4" ]
+## Pre-v3 ESP32-P4 (rev < 3.0). Uses ECO0 ROM maps, not ECO5. No PAC dependency.
+esp32p4v1 = []
 ##
 esp32s2 = [ "dep:esp32s2" ]
 ##
