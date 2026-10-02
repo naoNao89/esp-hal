@@ -48,6 +48,14 @@ This branch adds the ESP32-P4 UART function-clock / baud-divider implementation 
 
 **Register-reference provenance:** implementation comments identify Espressif IDF's ESP32-P4 `hw_ver1` register headers and `uart_ll_set_sclk` / `uart_ll_set_baudrate` as the reference for the register map. PAC accessors come from the ESP32-P4 PAC pinned in `esp-hal/Cargo.toml` at revision `5a07030bbe72d57f82314a26ec42b7f93e03bd1d`. This documents the code's source references; it does not claim a byte-for-byte copied implementation.
 
+### Local modification: pre-v3.0 (eco0–4) ROM linker selection
+
+The local `esp-rom-sys/build.rs` change selects ROM linker files for pre-v3.0 (eco0–4) ESP32-P4 silicon. It reads `ESP_HAL_CONFIG_MIN_CHIP_REVISION` (unset defaults to `300`): `esp32p4` with a value below `300` selects `ld/esp32p4-eco0_4/`; otherwise the original `ld/esp32p4/` selection remains unchanged. The script also reruns when this environment variable changes.
+
+The eco0–4 tables are required because the post-v3 table maps `__udivdi3` to `0x4fc00838`, while pre-v3 ROM provides it at `0x4fc00844`; the pre-v3 syscall table pointer is `0x4ff3ffe4` rather than the eco5+ `0x4ffbffe4`. The `ld/esp32p4-eco0_4/` files preserve the crate's existing include layout; `rom/additional.ld` records its Espressif IDF v6.1 reference in its header.
+
+The application-specific environment selection is not part of this standalone repository. No hardware flash, erase, eFuse, build, test, lint, or formatting operation is claimed by this local metadata.
+
 
 ## Getting Started
 

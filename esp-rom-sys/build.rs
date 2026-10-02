@@ -15,7 +15,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     println!("cargo:rustc-link-search={}", out.display());
 
-    copy_dir_all(format!("./ld/{}/", chip.name()), &out)?;
+    // P4 ROM entry points differ between pre-v3 and v3+ silicon. Use the
+    // same revision setting as esp-hal rather than linking a second profile.
+    println!("cargo:rerun-if-env-changed=ESP_HAL_CONFIG_MIN_CHIP_REVISION");
+    let minimum_revision = match std::env::var("ESP_HAL_CONFIG_MIN_CHIP_REVISION") {
+        Ok(value) => value.parse::<u32>()?,
+        Err(std::env::VarError::NotPresent) => 300,
+        Err(error) => return Err(error.into()),
+    };
+    let linker_chip = if chip.name() == "esp32p4" && minimum_revision < 300 {
+        "esp32p4-eco0_4"
+    } else {
+        chip.name()
+    };
+    copy_dir_all(format!("./ld/{linker_chip}/"), &out)?;
     copy_dir_all(format!("./libs/{}/", chip.name()), &out)?;
 
     include_libs(format!("./libs/{}/", chip.name()))?;
