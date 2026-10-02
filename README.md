@@ -36,6 +36,19 @@ If you are currently using (or considering using) `esp-hal` in a production envi
 [open an issue]: https://github.com/esp-rs/esp-hal/issues/new
 [matrix]: https://matrix.to/#/#esp-rs:matrix.org
 
+## Local ESP32-P4 pre-v3 provenance
+
+This local branch is based on upstream `esp-hal` commit `6e91e2cf25fa671d8d02e82cda169f8766423440` and preserves the full upstream workspace, source layout, assets, and history. The verified target profile is ESP32-P4 silicon revision 1.3 (pre-v3) with 32 MB flash; PCB identity and PSRAM status are not asserted here.
+
+The badges, project links, and support/release policies above are inherited upstream reference material. They are not claims of CI, HIL, release, support, or publication status for this local branch.
+
+### Local modification: P4 UART function clock and baud-rate divider hooks
+
+This branch adds the ESP32-P4 UART function-clock / baud-divider implementation in `esp-hal/src/soc/esp32p4/clocks.rs`. It implements the previously empty `UartInstance::configure_function_clock_impl` and `configure_baud_rate_generator_impl` hooks. The former programs each UART's source selector and function-clock predivider in `HP_SYS_CLKRST` (`PERI_CLK_CTRL(110+n)` source selector, `PERI_CLK_CTRL(111+n)` divider); the latter writes the integral and fractional baud divider fields in that UART's `CLKDIV` register. The implementations cover UART0–UART4, map hardware source encodings explicitly, and preserve the existing register-update synchronization path.
+
+**Register-reference provenance:** implementation comments identify Espressif IDF's ESP32-P4 `hw_ver1` register headers and `uart_ll_set_sclk` / `uart_ll_set_baudrate` as the reference for the register map. PAC accessors come from the ESP32-P4 PAC pinned in `esp-hal/Cargo.toml` at revision `5a07030bbe72d57f82314a26ec42b7f93e03bd1d`. This documents the code's source references; it does not claim a byte-for-byte copied implementation.
+
+
 ## Getting Started
 
 For information relating to the development of Rust applications on ESP devices, please first read [The Rust on ESP Book].

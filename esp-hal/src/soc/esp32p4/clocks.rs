@@ -20,7 +20,7 @@
 use esp_rom_sys::rom::ets_update_cpu_frequency_rom;
 
 use crate::{
-    peripherals::{HP_SYS_CLKRST, LP_AON_CLKRST},
+    peripherals::{HP_SYS_CLKRST, LP_AON_CLKRST, UART0, UART1, UART2, UART3, UART4},
     time::Rate,
 };
 
@@ -332,10 +332,60 @@ impl UartInstance {
         self,
         _clocks: &mut ClockTree,
         _old_config: Option<UartFunctionClockConfig>,
-        _new_config: UartFunctionClockConfig,
+        new_config: UartFunctionClockConfig,
     ) {
-        // TODO: Configure UART clock source selection
-        // HP_SYS_CLKRST PERI_CLK_CTRL110-114 for UART0-4
+        // UART function-clock mux + predivider (HP_SYS_CLKRST). The register
+        // map is off-by-one: UARTn's source selector lives in
+        // PERI_CLK_CTRL(110+n), while UARTn's sclk divider lives in
+        // PERI_CLK_CTRL(111+n) (cf. ESP-IDF uart_ll_set_sclk /
+        // uart_ll_set_baudrate for esp32p4, hw_ver1 register headers).
+        //
+        // Hardware encoding of the 2-bit source selector:
+        // 0 = XTAL (40 MHz), 1 = RC_FAST, 2 = PLL_F80M — this does NOT match
+        // the declaration order of UartFunctionClockSclk, so map explicitly.
+        let src_sel = match new_config.sclk {
+            UartFunctionClockSclk::Xtal => 0,
+            UartFunctionClockSclk::RcFast => 1,
+            UartFunctionClockSclk::PllF80m => 2,
+        };
+        // Function clock = sclk / (div_num + 1). The numerator/denominator
+        // fraction fields are unused (stay at their reset value 0).
+        let div_num = new_config.div_num;
+        let regs = HP_SYS_CLKRST::regs();
+        match self {
+            UartInstance::Uart0 => {
+                regs.peri_clk_ctrl110()
+                    .modify(|_, w| unsafe { w.uart0_clk_src_sel().bits(src_sel) });
+                regs.peri_clk_ctrl111()
+                    .modify(|_, w| unsafe { w.uart0_sclk_div_num().bits(div_num as _) });
+            }
+            UartInstance::Uart1 => {
+                regs.peri_clk_ctrl111()
+                    .modify(|_, w| unsafe { w.uart1_clk_src_sel().bits(src_sel) });
+                regs.peri_clk_ctrl112()
+                    .modify(|_, w| unsafe { w.uart1_sclk_div_num().bits(div_num as _) });
+            }
+            UartInstance::Uart2 => {
+                regs.peri_clk_ctrl112()
+                    .modify(|_, w| unsafe { w.uart2_clk_src_sel().bits(src_sel) });
+                regs.peri_clk_ctrl113()
+                    .modify(|_, w| unsafe { w.uart2_sclk_div_num().bits(div_num as _) });
+            }
+            UartInstance::Uart3 => {
+                regs.peri_clk_ctrl113()
+                    .modify(|_, w| unsafe { w.uart3_clk_src_sel().bits(src_sel) });
+                regs.peri_clk_ctrl114()
+                    .modify(|_, w| unsafe { w.uart3_sclk_div_num().bits(div_num as _) });
+            }
+            UartInstance::Uart4 => {
+                regs.peri_clk_ctrl114()
+                    .modify(|_, w| unsafe { w.uart4_clk_src_sel().bits(src_sel) });
+                regs.peri_clk_ctrl115()
+                    .modify(|_, w| unsafe { w.uart4_sclk_div_num().bits(div_num as _) });
+            }
+        }
+        // HP_SYS_CLKRST has no clock-domain sync bit; atomicity is provided
+        // by the caller holding the ClockTree mutex.
     }
 
     fn enable_baud_rate_generator_impl(self, _clocks: &mut ClockTree, _en: bool) {
@@ -346,9 +396,23 @@ impl UartInstance {
         self,
         _clocks: &mut ClockTree,
         _old_config: Option<UartBaudRateGeneratorConfig>,
-        _new_config: UartBaudRateGeneratorConfig,
+        new_config: UartBaudRateGeneratorConfig,
     ) {
-        // Baud rate is configured directly in UART registers, not here
+        // UARTn baud-rate generator divider: CLKDIV integral part in bits
+        // 11:0, fractional part (x/16) in CLKDIV_FRAG bits 23:20. The
+        // change_baud path calls sync_regs() right after this, which sets
+        // REG_UPDATE bit 0 to push the values into the UART clock domain.
+        let regs = match self {
+            UartInstance::Uart0 => UART0::regs(),
+            UartInstance::Uart1 => UART1::regs(),
+            UartInstance::Uart2 => UART2::regs(),
+            UartInstance::Uart3 => UART3::regs(),
+            UartInstance::Uart4 => UART4::regs(),
+        };
+        regs.clkdiv().write(|w| unsafe {
+            w.clkdiv().bits(new_config.integral as _);
+            w.clkdiv_frag().bits(new_config.fractional as _)
+        });
     }
 }
 
